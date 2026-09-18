@@ -148,12 +148,28 @@ Aplica desplazamientos variables usando una palabra clave que se repite sobre
 las letras del mensaje. La clave debe contener letras, por ejemplo `SECRETO`.
 Los espacios y signos del mensaje se conservan.
 
-### Vernam (XOR)
+### Vernam de 5 bits (XOR)
 
-Combina cada caracter del mensaje con un caracter de la clave mediante la
-operacion XOR. El resultado se codifica en Base64 para poder viajar de forma
-segura dentro del JSON. Para la demostracion ideal, utiliza una clave del mismo
-largo que el mensaje.
+Usa el abecedario `A=0, B=1, ..., Z=25`. Cada valor se representa con 5 bits:
+por ejemplo, `T=19`, que en binario es `10011`. Después combina el valor del
+mensaje con el valor de la clave mediante XOR.
+
+La clave debe tener exactamente la misma longitud que el mensaje y ambos deben
+usar solamente letras de `A` a `Z`. El resultado se muestra nuevamente como
+letras. Por ejemplo, para `HOLA` con clave `POIU`:
+
+```text
+H (07) XOR P (15) = 08 = I
+O (14) XOR O (14) = 00 = A
+L (11) XOR I (08) = 03 = D
+A (00) XOR U (20) = 20 = U
+
+Texto cifrado: IADU
+```
+
+El descifrado aplica XOR otra vez con la misma clave, porque XOR es reversible:
+`IADU XOR POIU = HOLA`. Los valores de `26` a `31` no corresponden a letras
+del abecedario y se rechazan para conservar la representación `A-Z`.
 
 ## Orden recomendado para la demostracion
 

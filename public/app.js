@@ -74,6 +74,7 @@ function vigenere(texto, clave, descifrar = false) {
     return resultado;
 }
 
+/* VERSIÓN ANTERIOR DE VERNAM: XOR DE CARACTERES Y BASE64.
 function vernamCifrar(texto, clave) {
     if (!clave) return "";
     const bytes = [];
@@ -99,6 +100,39 @@ function vernamDescifrar(texto, clave) {
         return "Error: Base64 corrupto o clave inválida";
     }
 }
+*/
+
+// VERNAM EDUCATIVO DE 5 BITS: A=0, B=1, ..., Z=25.
+function valorLetra5Bits(letra) {
+    return letra.toUpperCase().charCodeAt(0) - 65;
+}
+
+function letraDesdeValor5Bits(valor) {
+    return String.fromCharCode(valor + 65);
+}
+
+function vernam5BitsCifrar(texto, clave) {
+    const mensaje = texto.toUpperCase();
+    const claveNormalizada = clave.toUpperCase();
+    let resultado = "";
+
+    for (let i = 0; i < mensaje.length; i++) {
+        const valorMensaje = valorLetra5Bits(mensaje[i]);
+        const valorClave = valorLetra5Bits(claveNormalizada[i]);
+        const resultadoXor = valorMensaje ^ valorClave;
+
+        // Los valores 26-31 no pertenecen al alfabeto A-Z.
+        if (resultadoXor > 25) {
+            throw new Error(`El XOR de la posición ${i + 1} produce ${resultadoXor}, fuera de A-Z.`);
+        }
+        resultado += letraDesdeValor5Bits(resultadoXor);
+    }
+    return resultado;
+}
+
+function vernam5BitsDescifrar(texto, clave) {
+    return vernam5BitsCifrar(texto, clave);
+}
 
 const configuracionAlgoritmos = {
     cesar: {
@@ -113,28 +147,28 @@ const configuracionAlgoritmos = {
     },
     vernam: {
         nombre: "Vernam",
-        claveValida: clave => clave.length > 0,
-        errorClave: "Vernam necesita una clave no vacía. Para la demostración ideal, usa una clave del mismo largo que el mensaje."
+        claveValida: (clave, mensaje) => /^[A-Za-z]+$/.test(clave) && /^[A-Za-z]+$/.test(mensaje) && clave.length === mensaje.length,
+        errorClave: "Vernam de 5 bits necesita mensaje y clave de la misma longitud, usando solo letras A-Z."
     }
 };
 
 function cifrarPorMetodo(metodo, mensaje, clave) {
     if (metodo === "cesar") return cifradoCesar(mensaje, clave);
     if (metodo === "vigenere") return vigenere(mensaje, clave);
-    if (metodo === "vernam") return vernamCifrar(mensaje, clave);
+    if (metodo === "vernam") return vernam5BitsCifrar(mensaje, clave);
     return "";
 }
 
 function descifrarPorMetodo(metodo, mensaje, clave) {
     if (metodo === "cesar") return descifradoCesar(mensaje, clave);
     if (metodo === "vigenere") return vigenere(mensaje, clave, true);
-    if (metodo === "vernam") return vernamDescifrar(mensaje, clave);
+    if (metodo === "vernam") return vernam5BitsDescifrar(mensaje, clave);
     return "";
 }
 
-function validarClave(metodo, clave) {
+function validarClave(metodo, clave, mensaje = "") {
     const algoritmo = configuracionAlgoritmos[metodo];
-    if (!algoritmo || !algoritmo.claveValida(clave)) {
+    if (!algoritmo || !algoritmo.claveValida(clave, mensaje)) {
         alert(algoritmo?.errorClave || "Selecciona un algoritmo válido.");
         return false;
     }
@@ -149,7 +183,7 @@ function configurarSelectorAlgoritmo() {
     const datos = {
         cesar: ["Desplazamiento", "Usa un número entero, por ejemplo 3 o -2."],
         vigenere: ["Palabra clave", "Usa solo letras; se repetirá sobre el mensaje."],
-        vernam: ["Clave XOR", "Usa cualquier texto. Idealmente debe tener el mismo largo que el mensaje."]
+        vernam: ["Clave XOR de 5 bits", "Usa solo letras A-Z y la misma cantidad de caracteres que el mensaje."]
     };
 
     function actualizar(metodo) {
@@ -183,9 +217,15 @@ function iniciarPC1() {
             return;
         }
 
-        if (!validarClave(metodo, clave)) return;
+        if (!validarClave(metodo, clave, mensaje)) return;
 
-        const mensajeCifrado = cifrarPorMetodo(metodo, mensaje, clave);
+        let mensajeCifrado;
+        try {
+            mensajeCifrado = cifrarPorMetodo(metodo, mensaje, clave);
+        } catch (error) {
+            alert(`Vernam de 5 bits no puede cifrar este par de letras: ${error.message}`);
+            return;
+        }
 
         document.getElementById("resultado").textContent = mensajeCifrado;
 
@@ -229,9 +269,15 @@ function iniciarPC2() {
         }
 
         const { metodo, mensajeCifrado } = paqueteRecibido;
-        if (!validarClave(metodo, clave)) return;
+        if (!validarClave(metodo, clave, mensajeCifrado)) return;
 
-        const mensajeDescifrado = descifrarPorMetodo(metodo, mensajeCifrado, clave);
+        let mensajeDescifrado;
+        try {
+            mensajeDescifrado = descifrarPorMetodo(metodo, mensajeCifrado, clave);
+        } catch (error) {
+            alert(`Vernam de 5 bits no puede descifrar este paquete: ${error.message}`);
+            return;
+        }
 
         document.getElementById("mensajeDescifrado").textContent = mensajeDescifrado;
     });
