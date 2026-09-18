@@ -28,6 +28,13 @@ function actualizarEstado(clase, texto) {
 // ==========================================
 // ALGORITMOS DE CRIPTOGRAFÍA
 // ==========================================
+
+// ==========================================
+// MÉTODO 1: CIFRADO CÉSAR
+// ==========================================
+// Cifrado: desplaza cada letra del mensaje la cantidad indicada.
+// Las letras conservan mayúsculas/minúsculas y los caracteres que no son
+// letras, como espacios y signos, se mantienen sin cambios.
 function cifradoCesar(texto, desplazamiento) {
     let resultado = "";
     desplazamiento = parseInt(desplazamiento) || 0;
@@ -45,10 +52,17 @@ function cifradoCesar(texto, desplazamiento) {
     return resultado;
 }
 
+// Descifrado: aplica el mismo desplazamiento en sentido contrario.
 function descifradoCesar(texto, desplazamiento) {
     return cifradoCesar(texto, -parseInt(desplazamiento));
 }
 
+// ==========================================
+// MÉTODO 2: CIFRADO VIGENÈRE
+// ==========================================
+// Cifrado y descifrado: usa cada letra de la clave como un desplazamiento
+// diferente. La clave se repite hasta cubrir todas las letras del mensaje.
+// Cuando descifrar es true, los desplazamientos se invierten.
 function vigenere(texto, clave, descifrar = false) {
     let resultado = "";
     clave = clave.toUpperCase().replace(/[^A-Z]/g, "");
@@ -102,7 +116,13 @@ function vernamDescifrar(texto, clave) {
 }
 */
 
-// VERNAM EDUCATIVO DE 5 BITS: A=0, B=1, ..., Z=25.
+// ==========================================
+// MÉTODO 3: CIFRADO VERNAM EDUCATIVO DE 5 BITS
+// ==========================================
+// Cada letra A-Z se convierte en un valor de 0 a 25 y se combina con el
+// valor de la letra correspondiente de la clave mediante XOR. Por eso el
+// mensaje y la clave deben tener la misma longitud y usar solo A-Z.
+// Si el resultado XOR está entre 26 y 31, no representa una letra válida.
 function valorLetra5Bits(letra) {
     return letra.toUpperCase().charCodeAt(0) - 65;
 }
@@ -130,6 +150,8 @@ function vernam5BitsCifrar(texto, clave) {
     return resultado;
 }
 
+// Descifrado: XOR es reversible, por lo que se repite exactamente la misma
+// operación usando el texto cifrado y la misma clave.
 function vernam5BitsDescifrar(texto, clave) {
     return vernam5BitsCifrar(texto, clave);
 }
@@ -153,6 +175,7 @@ const configuracionAlgoritmos = {
 };
 
 function cifrarPorMetodo(metodo, mensaje, clave) {
+    // PC1 llega aquí después de validar la clave y selecciona el cifrado.
     if (metodo === "cesar") return cifradoCesar(mensaje, clave);
     if (metodo === "vigenere") return vigenere(mensaje, clave);
     if (metodo === "vernam") return vernam5BitsCifrar(mensaje, clave);
@@ -160,6 +183,7 @@ function cifrarPorMetodo(metodo, mensaje, clave) {
 }
 
 function descifrarPorMetodo(metodo, mensaje, clave) {
+    // PC2 llega aquí después de recibir el paquete y seleccionar el descifrado.
     if (metodo === "cesar") return descifradoCesar(mensaje, clave);
     if (metodo === "vigenere") return vigenere(mensaje, clave, true);
     if (metodo === "vernam") return vernam5BitsDescifrar(mensaje, clave);
