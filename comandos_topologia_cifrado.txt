@@ -1,0 +1,267 @@
+COMANDOS DE TOPOLOGIA PARA TRANSMITIR EL TEXTO CIFRADO
+========================================================
+
+Objetivo
+--------
+Enviar el mensaje cifrado desde PC1 hasta PC2 atravesando dos routers.
+El servidor Node.js/WebSocket se ejecuta en PC2 y escucha en el puerto 3000.
+
+Recorrido:
+
+    PC1 --- SW1 --- R1 ===== R2 --- SW2 --- PC2
+                       enlace WAN
+
+Importante
+----------
+Estos comandos estan preparados para Cisco IOS / Packet Tracer.
+Si tu router usa interfaces distintas, reemplaza los nombres G0/0 y S0/0/0.
+La aplicacion web usa actualmente esta direccion para PC2:
+
+    ws://192.168.100.107:3000
+
+
+1. PLAN DE DIRECCIONAMIENTO
+===========================
+
+Dispositivo  Interfaz       Direccion IP       Mascara             Gateway
+PC1         FastEthernet0   192.168.10.10      255.255.255.0       192.168.10.1
+R1          G0/0            192.168.10.1       255.255.255.0       --
+R1          S0/0/0          10.0.0.1           255.255.255.252     --
+R2          S0/0/0          10.0.0.2           255.255.255.252     --
+R2          G0/0            192.168.100.1      255.255.255.0       --
+PC2         FastEthernet0   192.168.100.107    255.255.255.0       192.168.100.1
+
+Red PC1: 192.168.10.0/24
+Red PC2: 192.168.100.0/24
+Enlace entre routers: 10.0.0.0/30
+
+
+2. CONFIGURACION DE PC1
+========================
+
+En Packet Tracer, PC1 > Desktop > IP Configuration:
+
+IP Address:      192.168.10.10
+Subnet Mask:     255.255.255.0
+Default Gateway: 192.168.10.1
+DNS Server:      8.8.8.8   (opcional)
+
+
+3. CONFIGURACION DE PC2
+========================
+
+En Packet Tracer, PC2 > Desktop > IP Configuration:
+
+IP Address:      192.168.100.107
+Subnet Mask:     255.255.255.0
+Default Gateway: 192.168.100.1
+DNS Server:      8.8.8.8   (opcional)
+
+En PC2, ejecutar el servidor de la aplicacion:
+
+    npm install
+    node server.js
+
+El servidor debe quedar escuchando en:
+
+    0.0.0.0:3000
+
+
+4. CONFIGURACION DEL ROUTER R1
+==============================
+
+enable
+configure terminal
+hostname R1
+
+interface gigabitEthernet 0/0
+ description LAN_PC1
+ ip address 192.168.10.1 255.255.255.0
+ no shutdown
+ exit
+
+interface serial 0/0/0
+ description ENLACE_A_R2
+ ip address 10.0.0.1 255.255.255.252
+ clock rate 64000
+ no shutdown
+ exit
+
+ip route 192.168.100.0 255.255.255.0 10.0.0.2
+
+end
+copy running-config startup-config
+
+Nota: aplica clock rate solamente en el lado DCE del enlace serial.
+Si R1 no es DCE, elimina esa linea y ponla en R2.
+
+
+5. CONFIGURACION DEL ROUTER R2
+==============================
+
+enable
+configure terminal
+hostname R2
+
+interface serial 0/0/0
+ description ENLACE_A_R1
+ ip address 10.0.0.2 255.255.255.252
+ no shutdown
+ exit
+
+interface gigabitEthernet 0/0
+ description LAN_PC2_SERVIDOR
+ ip address 192.168.100.1 255.255.255.0
+ no shutdown
+ exit
+
+ip route 192.168.10.0 255.255.255.0 10.0.0.1
+
+end
+copy running-config startup-config
+
+
+6. CONFIGURACION OPCIONAL DE LOS SWITCHES
+==========================================
+
+SW1
+---
+
+enable
+configure terminal
+hostname SW1
+
+interface range fastEthernet 0/1 - 2
+ switchport mode access
+ spanning-tree portfast
+ no shutdown
+ exit
+
+end
+copy running-config startup-config
+
+SW2
+---
+
+enable
+configure terminal
+hostname SW2
+
+interface range fastEthernet 0/1 - 2
+ switchport mode access
+ spanning-tree portfast
+ no shutdown
+ exit
+
+end
+copy running-config startup-config
+
+Conecta:
+SW1 Fa0/1 <-> PC1
+SW1 Fa0/2 <-> R1 G0/0
+SW2 Fa0/1 <-> R2 G0/0
+SW2 Fa0/2 <-> PC2
+R1 S0/0/0 <-> R2 S0/0/0
+
+
+7. COMANDOS DE COMPROBACION
+============================
+
+En R1:
+
+show ip interface brief
+show ip route
+ping 10.0.0.2
+ping 192.168.100.1
+ping 192.168.100.107
+
+En R2:
+
+show ip interface brief
+show ip route
+ping 10.0.0.1
+ping 192.168.10.1
+ping 192.168.10.10
+
+En PC1, Command Prompt:
+
+ping 192.168.10.1
+ping 10.0.0.2
+ping 192.168.100.107
+
+En PC2, Command Prompt:
+
+ping 192.168.10.10
+
+
+8. PRUEBA DEL PUERTO DEL SERVIDOR
+==================================
+
+En PC2, con Node.js ejecutandose:
+
+Windows PowerShell:
+    Test-NetConnection 192.168.100.107 -Port 3000
+
+Linux:
+    nc -vz 192.168.100.107 3000
+
+El resultado esperado es que el puerto 3000 aparezca abierto.
+
+
+9. PRUEBA DEL RECORRIDO DEL TEXTO CIFRADO
+==========================================
+
+1. Configura las IP de PC1 y PC2.
+2. Configura R1 y R2 con los comandos anteriores.
+3. Comprueba primero los ping.
+4. En PC2 ejecuta: node server.js
+5. Abre en PC1 la pagina pc1.html.
+6. Abre en PC2 la pagina pc2.html.
+7. En PC1 selecciona Cesar, Vigenere o Vernam.
+8. Cifra el mensaje y pulsa "Cifrar y enviar".
+9. PC1 envia al servidor un paquete con:
+
+       tipo
+       metodo
+       mensajeCifrado
+
+10. PC2 recibe el paquete y lo descifra localmente con la clave compartida.
+
+La clave NO se envia por la red dentro del paquete. Para la practica, escribe la
+misma clave manualmente en PC1 y PC2.
+
+
+10. RUTAS ESTATICAS ALTERNATIVAS
+================================
+
+Si tu profesor solicita rutas estaticas explicitas, usa estas:
+
+R1:
+    ip route 192.168.100.0 255.255.255.0 10.0.0.2
+
+R2:
+    ip route 192.168.10.0 255.255.255.0 10.0.0.1
+
+Si prefieres RIP version 2 en lugar de rutas estaticas:
+
+R1:
+    enable
+    configure terminal
+    router rip
+    version 2
+    no auto-summary
+    network 192.168.10.0
+    network 10.0.0.0
+    end
+
+R2:
+    enable
+    configure terminal
+    router rip
+    version 2
+    no auto-summary
+    network 192.168.100.0
+    network 10.0.0.0
+    end
+
+Usa rutas estaticas o RIP, pero no necesitas configurar ambos para esta practica.
